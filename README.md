@@ -25,4 +25,4 @@
 
 ## ⚠️ Notes
 - This runtime is specifically designed for **Axmol v3**.  
-- Ensure you are using the correct branch and Spine version to avoid compatibility issues.
+- Ensure you are using the correct branch and Live2D version to avoid compatibility issues.
