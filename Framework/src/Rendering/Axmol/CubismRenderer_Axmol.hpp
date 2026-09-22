@@ -8,6 +8,7 @@
 #pragma once
 
 #include "../CubismRenderer.hpp"
+#include "../csmBlendMode.hpp"
 #include "CubismFramework.hpp"
 #include "CubismOffscreenSurface_Axmol.hpp"
 #include "CubismCommandBuffer_Axmol.hpp"
@@ -24,6 +25,28 @@ namespace Live2D { namespace Cubism { namespace Framework { namespace Rendering 
 //  前方宣言
 class CubismRenderer_Axmol;
 class CubismClippingContext_Axmol;
+
+class CubismOffscreenRenderTarget_Axmol
+{
+public:
+    CubismOffscreenRenderTarget_Axmol();
+    ~CubismOffscreenRenderTarget_Axmol();
+
+    void SetOffscreenIndex(csmInt32 offscreenIndex);
+    csmInt32 GetOffscreenIndex() const;
+    CubismOffscreenFrame_Axmol* GetRenderTarget();
+    const CubismOffscreenFrame_Axmol* GetRenderTarget() const;
+    void SetParentPartOffscreen(CubismOffscreenRenderTarget_Axmol* parent);
+    CubismOffscreenRenderTarget_Axmol* GetParentPartOffscreen() const;
+    void SetOldOffscreen(CubismOffscreenRenderTarget_Axmol* oldOffscreen);
+    CubismOffscreenRenderTarget_Axmol* GetOldOffscreen() const;
+
+private:
+    csmInt32 _offscreenIndex;
+    CubismOffscreenFrame_Axmol* _renderTarget;
+    CubismOffscreenRenderTarget_Axmol* _parentPartOffscreen;
+    CubismOffscreenRenderTarget_Axmol* _oldOffscreen;
+};
 
 /**
  * @brief  クリッピングマスクの処理を実行するクラス
@@ -50,6 +73,9 @@ private:
      * @param[in]   clippingContext  ->  クリッピングマスクのコンテキスト
      */
     void CalcClippedDrawTotalBounds(CubismModel& model, CubismClippingContext_Axmol* clippingContext);
+    void CalcClippedDrawTotalBounds(CubismModel& model, CubismClippingContext_Axmol* clippingContext, CubismRenderer::DrawableObjectType drawableObjectType);
+    void CollectOffscreenChildDrawableIndexList(CubismModel& model, csmInt32 offscreenIndex, csmVector<csmInt32>& childDrawableIndexList);
+    void CollectPartChildDrawableIndexList(CubismModel& model, csmInt32 partIndex, csmVector<csmInt32>& childDrawableIndexList);
 
     /**
      * @brief    コンストラクタ
@@ -71,6 +97,7 @@ private:
      * @param[in]   drawableMaskCounts   ->  描画オブジェクトをマスクする描画オブジェクトの数
      */
     void Initialize(CubismModel& model, csmInt32 drawableCount, const csmInt32** drawableMasks, const csmInt32* drawableMaskCounts);
+    void Initialize(CubismModel& model, csmInt32 maskBufferCount, CubismRenderer::DrawableObjectType drawableObjectType);
 
     /**
      * @brief   クリッピングコンテキストを作成する。モデル描画時に実行する。
@@ -83,7 +110,11 @@ private:
     void SetupClippingContext(CubismModel& model,
                               CubismRenderer_Axmol* renderer,
                               rhi::Texture* lastColorBuffer,
-                              csmRectF lastViewport);
+                              csmRectF lastViewport,
+                              CubismOffscreenFrame_Axmol* maskBuffer,
+                              CubismRenderer::DrawableObjectType drawableObjectType,
+                              csmBool isRightHanded,
+                              const CubismMatrix44& mvp = CubismMatrix44());
 
     /**
      * @brief   既にマスクを作っているかを確認。<br>
@@ -111,6 +142,7 @@ private:
      * @return  画面描画に使用するクリッピングマスクのリスト
      */
     csmVector<CubismClippingContext_Axmol*>* GetClippingContextListForDraw();
+    csmVector<CubismClippingContext_Axmol*>* GetClippingContextListForOffscreen();
 
     /**
      *@brief  クリッピングマスクバッファのサイズを設定する
@@ -133,6 +165,7 @@ private:
     csmVector<CubismRenderer::CubismTextureColor*>  _channelColors;
     csmVector<CubismClippingContext_Axmol*>               _clippingContextListForMask;   ///< マスク用クリッピングコンテキストのリスト
     csmVector<CubismClippingContext_Axmol*>               _clippingContextListForDraw;   ///< 描画用クリッピングコンテキストのリスト
+    csmVector<CubismClippingContext_Axmol*>               _clippingContextListForOffscreen;   ///< オフスクリーン用クリッピングコンテキストのリスト
     CubismVector2                                   _clippingMaskBufferSize; ///< クリッピングマスクのバッファサイズ（初期値:256）
 
     CubismMatrix44  _tmpMatrix;              ///< マスク計算用の行列
@@ -169,6 +202,7 @@ private:
      * @param[in]   drawableIndex   ->  クリッピング対象に追加する描画オブジェクトのインデックス
      */
     void AddClippedDrawable(csmInt32 drawableIndex);
+    void AddClippedOffscreen(csmInt32 offscreenIndex);
 
     /**
      * @brief   このマスクを管理するマネージャのインスタンスを取得する。
@@ -181,11 +215,13 @@ private:
     const csmInt32* _clippingIdList;                 ///< クリッピングマスクのIDリスト
     csmInt32 _clippingIdCount;                       ///< クリッピングマスクの数
     csmInt32 _layoutChannelNo;                       ///< RGBAのいずれのチャンネルにこのクリップを配置するか(0:R , 1:G , 2:B , 3:A)
+    csmInt32 _bufferIndex;                           ///< このマスクが割り当てられるレンダーテクスチャのインデックス
     csmRectF* _layoutBounds;                         ///< マスク用チャンネルのどの領域にマスクを入れるか(View座標-1..1, UVは0..1に直す)
     csmRectF* _allClippedDrawRect;                   ///< このクリッピングで、クリッピングされる全ての描画オブジェクトの囲み矩形（毎回更新）
     CubismMatrix44 _matrixForMask;                   ///< マスクの位置計算結果を保持する行列
     CubismMatrix44 _matrixForDraw;                   ///< 描画オブジェクトの位置計算結果を保持する行列
     csmVector<csmInt32>* _clippedDrawableIndexList;  ///< このマスクにクリップされる描画オブジェクトのリスト
+    csmVector<csmInt32>* _clippedOffscreenIndexList; ///< このマスクにクリップされるオフスクリーンのリスト
     csmVector<CubismCommandBuffer_Axmol::DrawCommandBuffer*>* _clippingCommandBufferList;
 
     CubismClippingManager_Axmol* _owner;        ///< このマスクを管理しているマネージャのインスタンス
@@ -226,9 +262,11 @@ private:
         ax::rhi::UniformLocation UniformClipMatrixLocation;    ///< シェーダプログラムに渡す変数のアドレス(ClipMatrix)
         ax::rhi::UniformLocation SamplerTexture0Location;      ///< シェーダプログラムに渡す変数のアドレス(Texture0)
         ax::rhi::UniformLocation SamplerTexture1Location;      ///< シェーダプログラムに渡す変数のアドレス(Texture1)
+        ax::rhi::UniformLocation SamplerBlendTextureLocation;  ///< シェーダプログラムに渡す変数のアドレス(BlendTexture)
         ax::rhi::UniformLocation UniformBaseColorLocation;     ///< シェーダプログラムに渡す変数のアドレス(BaseColor)
         ax::rhi::UniformLocation UniformMultiplyColorLocation; ///< シェーダプログラムに渡す変数のアドレス(MultiplyColor)
         ax::rhi::UniformLocation UniformScreenColorLocation;   ///< シェーダプログラムに渡す変数のアドレス(ScreenColor)
+        ax::rhi::UniformLocation UniformBlendModeLocation;      ///< シェーダプログラムに渡す変数のアドレス(BlendMode)
         ax::rhi::UniformLocation UnifromChannelFlagLocation;   ///< シェーダプログラムに渡す変数のアドレス(ChannelFlag)
     };
 
@@ -264,8 +302,18 @@ private:
                             , CubismRenderer::CubismTextureColor baseColor
                             , CubismRenderer::CubismTextureColor multiplyColor
                             , CubismRenderer::CubismTextureColor screenColor
+                            , const Live2D::Cubism::Framework::csmBlendMode& sourceBlendMode
+                            , ax::Texture2D* blendTexture
                             , csmBool isPremultipliedAlpha, CubismMatrix44 matrix4x4
                             , csmBool invertedMask);
+
+    void SetupRenderTargetShaderProgram(CubismCommandBuffer_Axmol::DrawCommandBuffer::DrawCommand* drawCommand,
+                                        ax::Texture2D* texture,
+                                        CubismRenderer::CubismTextureColor baseColor,
+                                        ax::rhi::BlendFactor sourceRGB,
+                                        ax::rhi::BlendFactor destinationRGB,
+                                        ax::rhi::BlendFactor sourceAlpha,
+                                        ax::rhi::BlendFactor destinationAlpha);
 
     /**
      * @brief   シェーダプログラムを解放する
@@ -437,6 +485,8 @@ protected:
                   , csmUint16* indexArray, csmFloat32* vertexArray, csmFloat32* uvArray
                   , csmFloat32 opacity, CubismBlendMode colorBlendMode
                   , CubismTextureColor multiplyColor, CubismTextureColor screenColor
+                  , const Live2D::Cubism::Framework::csmBlendMode& sourceBlendMode
+                  , ax::Texture2D* blendTexture
                   , csmBool invertedMask);
 
     CubismCommandBuffer_Axmol::DrawCommandBuffer* GetDrawCommandBufferData(csmInt32 drawableIndex);
@@ -474,8 +524,44 @@ private:
      */
     virtual void RestoreProfile() override;
 
-    void BeforeDrawModelRenderTarget() override {}
-    void AfterDrawModelRenderTarget() override {}
+    void BeforeDrawModelRenderTarget() override;
+    void AfterDrawModelRenderTarget() override;
+
+    ax::Texture2D* CopyCurrentModelRenderTarget();
+    ax::Texture2D* CopyCurrentRenderTarget(CubismOffscreenFrame_Axmol* sourceTarget);
+    CubismCommandBuffer_Axmol::DrawCommandBuffer* CreateRenderTargetDrawCommandBuffer();
+    CubismCommandBuffer_Axmol::DrawCommandBuffer* GetRenderTargetCopyDrawCommandBuffer();
+    void SyncRenderTargetSize(csmFloat32 width, csmFloat32 height);
+    void SyncRenderTargetSizeWithCurrentViewport();
+    void OnRenderViewResized();
+    csmRectF GetCurrentDrawViewport() const;
+    void DrawRenderTargetToCurrent(CubismOffscreenFrame_Axmol* renderTarget,
+                                   CubismCommandBuffer_Axmol::DrawCommandBuffer::DrawCommand* drawCommand,
+                                   CubismTextureColor baseColor,
+                                   ax::rhi::BlendFactor sourceRGB,
+                                   ax::rhi::BlendFactor destinationRGB,
+                                   ax::rhi::BlendFactor sourceAlpha,
+                                   ax::rhi::BlendFactor destinationAlpha);
+    void DrawRenderTargetMeshToCurrent(CubismCommandBuffer_Axmol::DrawCommandBuffer::DrawCommand* drawCommand,
+                                       ax::Texture2D* texture,
+                                       CubismBlendMode colorBlendMode,
+                                       CubismTextureColor baseColor,
+                                       CubismTextureColor multiplyColor,
+                                       CubismTextureColor screenColor,
+                                       const csmBlendMode& sourceBlendMode,
+                                       ax::Texture2D* blendTexture,
+                                       csmBool invertedMask);
+    void DrawMaskForClippingContext(CubismClippingContext_Axmol* clipContext,
+                                    CubismClippingManager_Axmol* clippingManager,
+                                    CubismOffscreenFrame_Axmol* maskBuffer,
+                                    rhi::Texture* restoreColorBuffer);
+    void SetupParentOffscreens(const CubismModel* model, csmInt32 offscreenCount);
+    void DrawObjectLoop();
+    void RenderObject(csmInt32 objectIndex, DrawableObjectType objectType);
+    void DrawDrawable(csmInt32 drawableIndex);
+    void AddOffscreen(csmInt32 offscreenIndex);
+    void DrawOffscreen(CubismOffscreenRenderTarget_Axmol* currentOffscreen);
+    void SubmitDrawToParentOffscreen(csmInt32 objectIndex, DrawableObjectType objectType);
 
     /**
      * @brief   マスクテクスチャに描画するクリッピングコンテキストをセットする。
@@ -500,17 +586,34 @@ private:
      * @return  画面上に描画するクリッピングコンテキスト
      */
     CubismClippingContext_Axmol* GetClippingContextBufferForDraw() const;
+    void SetClippingContextBufferForOffscreen(CubismClippingContext_Axmol* clip);
+    CubismClippingContext_Axmol* GetClippingContextBufferForOffscreen() const;
 
 
     csmMap<csmInt32, ax::Texture2D*>            _textures;                      ///< モデルが参照するテクスチャとレンダラでバインドしているテクスチャとのマップ
     csmVector<csmInt32>                 _sortedDrawableIndexList;       ///< 描画オブジェクトのインデックスを描画順に並べたリスト
+    csmVector<csmInt32>                 _sortedObjectsIndexList;
+    csmVector<DrawableObjectType>       _sortedObjectsTypeList;
+    csmVector<CubismOffscreenRenderTarget_Axmol*> _offscreenList;
+    CubismOffscreenRenderTarget_Axmol*  _currentOffscreen;
     CubismRendererProfile_Axmol     _rendererProfile;               ///< OpenGLのステートを保持するオブジェクト
     CubismClippingManager_Axmol*    _clippingManager;               ///< クリッピングマスク管理オブジェクト
+    CubismClippingManager_Axmol*    _offscreenClippingManager;      ///< オフスクリーン用クリッピングマスク管理オブジェクト
     CubismClippingContext_Axmol*              _clippingContextBufferForMask;  ///< マスクテクスチャに描画するためのクリッピングコンテキスト
     CubismClippingContext_Axmol*              _clippingContextBufferForDraw;  ///< 画面上描画するためのクリッピングコンテキスト
+    CubismClippingContext_Axmol*              _clippingContextBufferForOffscreen; ///< オフスクリーン描画用のクリッピングコンテキスト
 
     CubismOffscreenFrame_Axmol      _offscreenFrameBuffer;          ///< マスク描画用のフレームバッファ
+    CubismOffscreenFrame_Axmol      _offscreenMaskFrameBuffer;      ///< オフスクリーンマスク描画用のフレームバッファ
+    csmVector<CubismOffscreenFrame_Axmol*> _modelRenderTargets;     ///< 5.5ブレンド用モデル描画バッファ
     csmVector<CubismCommandBuffer_Axmol::DrawCommandBuffer*>  _drawableDrawCommandBuffer;
+    csmVector<CubismCommandBuffer_Axmol::DrawCommandBuffer*>  _offscreenDrawCommandBuffer;
+    CubismCommandBuffer_Axmol::DrawCommandBuffer* _renderTargetDrawCommandBuffer;
+    csmVector<CubismCommandBuffer_Axmol::DrawCommandBuffer*> _renderTargetCopyDrawCommandBuffers;
+    csmUint32 _renderTargetCopyDrawCommandBufferIndex;
+#if AX_TARGET_PLATFORM != AX_PLATFORM_IOS && AX_TARGET_PLATFORM != AX_PLATFORM_ANDROID
+    ax::CustomEventListener* _windowResizeListener{nullptr};
+#endif
 };
 
 }}}}

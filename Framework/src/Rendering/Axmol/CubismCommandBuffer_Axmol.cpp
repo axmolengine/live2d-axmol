@@ -34,6 +34,7 @@ CubismCommandBuffer_Axmol::DrawCommandBuffer::DrawCommandBuffer()
     : _vbStride(0)
     , _vbCount(0)
     , _ibCount(0)
+    , _drawBuffer(nullptr)
 {
 }
 
@@ -56,12 +57,12 @@ void CubismCommandBuffer_Axmol::DrawCommandBuffer::CreateIndexBuffer(csmSizeInt 
     _drawCommandDraw.GetCommand()->createIndexBuffer(ax::rhi::IndexFormat::U_SHORT, count, ax::CustomCommand::BufferUsage::DYNAMIC);
 }
 
-void CubismCommandBuffer_Axmol::DrawCommandBuffer::UpdateVertexBuffer(void* data, void* uvData, csmSizeInt count)
+void CubismCommandBuffer_Axmol::DrawCommandBuffer::UpdateVertexBuffer(const void* data, const void* uvData, csmSizeInt count)
 {
     csmSizeInt length = count * _vbStride;
     csmFloat32* dest = reinterpret_cast<csmFloat32*>(_drawBuffer);
-    csmFloat32* sourceVertices = reinterpret_cast<csmFloat32*>(data);
-    csmFloat32* sourceUvs = reinterpret_cast<csmFloat32*>(uvData);
+    const csmFloat32* sourceVertices = reinterpret_cast<const csmFloat32*>(data);
+    const csmFloat32* sourceUvs = reinterpret_cast<const csmFloat32*>(uvData);
 
     for (csmUint32 i = 0, j = 0; i < count; ++i)
     {
@@ -81,7 +82,7 @@ void CubismCommandBuffer_Axmol::DrawCommandBuffer::UpdateVertexBuffer(void* data
     }
 }
 
-void CubismCommandBuffer_Axmol::DrawCommandBuffer::UpdateIndexBuffer(void* data, csmSizeInt count)
+void CubismCommandBuffer_Axmol::DrawCommandBuffer::UpdateIndexBuffer(const void* data, csmSizeInt count)
 {
     csmSizeInt length = count * sizeof(csmInt16);
 
@@ -107,6 +108,7 @@ CubismCommandBuffer_Axmol::CubismCommandBuffer_Axmol()
 
 CubismCommandBuffer_Axmol::~CubismCommandBuffer_Axmol()
 {
+    AX_SAFE_RELEASE(_offscreenRT);
 }
 
 void CubismCommandBuffer_Axmol::PushCommandGroup()
@@ -229,11 +231,13 @@ void CubismCommandBuffer_Axmol::SetColorBuffer(rhi::Texture* colorBuffer)
     // or offscreen textures.
     _currentColorBuffer = colorBuffer;
 
-    AddCommand([=]() -> void {
+    AddCommand([this, colorBuffer]() -> void {
         rhi::RenderTarget* rt = nullptr;
         if (colorBuffer)
         {
-            rt = GetCocos2dRenderer()->getOffscreenRenderTarget();
+            if (!_offscreenRT)
+                _offscreenRT = axdrv->createRenderTarget();
+            rt = _offscreenRT;
             rt->setColorTexture(colorBuffer);
         }
         else

@@ -46,8 +46,8 @@ public:
 
         void CreateVertexBuffer(csmSizeInt stride, csmSizeInt count);
         void CreateIndexBuffer(csmSizeInt count);
-        void UpdateVertexBuffer(void* data, void* uvData, csmSizeInt count);
-        void UpdateIndexBuffer(void* data, csmSizeInt count);
+        void UpdateVertexBuffer(const void* data, const void* uvData, csmSizeInt count);
+        void UpdateIndexBuffer(const void* data, csmSizeInt count);
         void CommitVertexBuffer();
 
         DrawCommand* GetCommandDraw();
@@ -133,6 +133,7 @@ private:
     void AddCommand(const std::function<void()>& fn);
 
     rhi::Texture* _currentColorBuffer;
+    rhi::RenderTarget* _offscreenRT = nullptr;
     OperationStateData _operationStateArray[OperationType_TypeMax];
 };
 

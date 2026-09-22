@@ -18,7 +18,7 @@
 ---
 
 ## 🔗 References
-- [Axmol Engine](https://github.com/axmolengine/axmol)  
+- [Axmol](https://github.com/axmolengine/axmol)  
 - [CubismNativeFramework](https://github.com/Live2D/CubismNativeFramework)
 
 ---
